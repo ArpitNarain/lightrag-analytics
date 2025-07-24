@@ -448,6 +448,27 @@ if lightrag_available:
                 st.session_state.last_results = {}
                 st.rerun()
         
+        # Add force reprocess button for debugging
+        if st.button("🔄 Force Reprocess Document"):
+            if 'processed_document' in st.session_state:
+                with st.spinner("🔄 Force reprocessing document..."):
+                    try:
+                        # Clear the RAG instance and reinitialize
+                        if 'rag_instance' in st.session_state:
+                            del st.session_state.rag_instance
+                        
+                        # Reinitialize RAG
+                        rag = initialize_rag()
+                        
+                        # Reprocess document
+                        rag.insert(st.session_state.processed_document)
+                        st.success("✅ Document force reprocessed!")
+                        st.session_state.rag_initialized = True
+                    except Exception as e:
+                        st.error(f"❌ Error reprocessing: {str(e)}")
+            else:
+                st.warning("No document to reprocess. Upload a document first.")
+        
         # Query execution
         if search_clicked:
             if not user_query:
@@ -484,7 +505,12 @@ if lightrag_available:
                         
                         # Add debug info for no-context responses
                         if "[no-context]" in result:
-                            result += f"\n\n🔍 Debug Info:\n- Document processed: {st.session_state.rag_initialized}\n- Working dir exists: {os.path.exists(WORKING_DIR)}\n- Query mode: {mode}"
+                            # Check what files exist in working directory
+                            working_dir_files = []
+                            if os.path.exists(WORKING_DIR):
+                                working_dir_files = os.listdir(WORKING_DIR)
+                            
+                            result += f"\n\n🔍 Detailed Debug Info:\n- Document processed: {st.session_state.rag_initialized}\n- Working dir exists: {os.path.exists(WORKING_DIR)}\n- Working dir files: {working_dir_files}\n- Query mode: {mode}\n- Document hash: {st.session_state.get('current_document_hash', 'None')[:8]}...\n- Document length: {len(st.session_state.get('processed_document', ''))}"
                         
                         results[mode] = result
                         performance_data.append({
