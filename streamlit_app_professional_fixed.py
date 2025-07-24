@@ -234,22 +234,14 @@ try:
     # Initialize RAG system with session state caching
     def initialize_rag():
         if 'rag_instance' not in st.session_state:
-            # Custom wrapper to avoid model parameter conflicts
-            async def llm_model_func(prompt, **kwargs):
-                return await gpt_4o_mini_complete(prompt)
-            
-            # Custom embedding wrapper
-            def embedding_wrapper(texts):
-                return openai_embed(texts)
-            
             st.session_state.rag_instance = LightRAG(
                 working_dir=WORKING_DIR,
-                llm_model_func=llm_model_func,
+                llm_model_func=gpt_4o_mini_complete,
                 llm_model_kwargs={"temperature": 0.0},
                 embedding_func=EmbeddingFunc(
                     embedding_dim=1536,
                     max_token_size=8192,
-                    func=embedding_wrapper
+                    func=lambda texts: openai_embed(texts, model="text-embedding-3-small")
                 )
             )
         return st.session_state.rag_instance
