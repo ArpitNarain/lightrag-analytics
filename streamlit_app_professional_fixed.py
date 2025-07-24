@@ -379,8 +379,19 @@ if lightrag_available:
                     with st.spinner("🔄 Processing document (first time may take longer)..."):
                         start_time = time.time()
                         try:
+                            # Force clean working directory
+                            import shutil
+                            if os.path.exists(WORKING_DIR):
+                                shutil.rmtree(WORKING_DIR)
+                            os.makedirs(WORKING_DIR, exist_ok=True)
+                            
+                            # Reinitialize RAG with clean directory
+                            if 'rag_instance' in st.session_state:
+                                del st.session_state.rag_instance
+                            rag = initialize_rag()
+                            
                             # Add verbose logging
-                            st.info("🔄 Starting document insertion...")
+                            st.info("🔄 Starting fresh document insertion...")
                             rag.insert(document_text)
                             processing_time = time.time() - start_time
                             
@@ -473,10 +484,16 @@ if lightrag_available:
                 st.rerun()
         
         # Add force reprocess button for debugging
-        if st.button("🔄 Force Reprocess Document"):
+        if st.button("🔄 Force Clean Reprocess"):
             if 'processed_document' in st.session_state:
-                with st.spinner("🔄 Force reprocessing document..."):
+                with st.spinner("🔄 Force clean reprocessing document..."):
                     try:
+                        # Force clean working directory
+                        import shutil
+                        if os.path.exists(WORKING_DIR):
+                            shutil.rmtree(WORKING_DIR)
+                        os.makedirs(WORKING_DIR, exist_ok=True)
+                        
                         # Clear the RAG instance and reinitialize
                         if 'rag_instance' in st.session_state:
                             del st.session_state.rag_instance
@@ -485,11 +502,19 @@ if lightrag_available:
                         rag = initialize_rag()
                         
                         # Reprocess document
+                        st.info("🔄 Starting completely fresh processing...")
                         rag.insert(st.session_state.processed_document)
-                        st.success("✅ Document force reprocessed!")
+                        
+                        # Check results
+                        created_files = os.listdir(WORKING_DIR) if os.path.exists(WORKING_DIR) else []
+                        st.info(f"📁 Files created after clean reprocess: {created_files}")
+                        
+                        st.success("✅ Document force reprocessed with clean slate!")
                         st.session_state.rag_initialized = True
                     except Exception as e:
                         st.error(f"❌ Error reprocessing: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
             else:
                 st.warning("No document to reprocess. Upload a document first.")
         
