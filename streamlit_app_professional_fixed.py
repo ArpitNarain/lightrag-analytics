@@ -213,10 +213,16 @@ if not openai_api_key:
     st.error("⚠️ OPENAI_API_KEY not found in environment variables. Please add it to your .env file.")
     st.stop()
 
-# Working directory setup
-WORKING_DIR = "./findings_RAG"
-if not os.path.exists(WORKING_DIR):
-    os.mkdir(WORKING_DIR)
+# Working directory setup with session state persistence
+if 'rag_initialized' not in st.session_state:
+    WORKING_DIR = "./findings_RAG"
+    if not os.path.exists(WORKING_DIR):
+        os.makedirs(WORKING_DIR, exist_ok=True)
+    st.session_state.working_dir = WORKING_DIR
+    st.session_state.rag_initialized = False
+    st.session_state.current_document_hash = None
+
+WORKING_DIR = st.session_state.working_dir
 
 # Try to import and initialize LightRAG
 try:
@@ -225,19 +231,20 @@ try:
     from lightrag.utils import EmbeddingFunc
     from lightrag.llm.openai import openai_embed
     
-    # Initialize RAG system
-    @st.cache_resource
+    # Initialize RAG system with session state caching
     def initialize_rag():
-        return LightRAG(
-            working_dir=WORKING_DIR,
-            llm_model_func=gpt_4o_mini_complete,
-            llm_model_kwargs={"temperature": 0.0},
-            embedding_func=EmbeddingFunc(
-                embedding_dim=1536,
-                max_token_size=8192,
-                func=lambda texts: openai_embed(texts, model="text-embedding-3-small")
+        if 'rag_instance' not in st.session_state:
+            st.session_state.rag_instance = LightRAG(
+                working_dir=WORKING_DIR,
+                llm_model_func=gpt_4o_mini_complete,
+                llm_model_kwargs={"temperature": 0.0},
+                embedding_func=EmbeddingFunc(
+                    embedding_dim=1536,
+                    max_token_size=8192,
+                    func=lambda texts: openai_embed(texts, model="text-embedding-3-small")
+                )
             )
-        )
+        return st.session_state.rag_instance
     
     rag = initialize_rag()
     lightrag_available = True
@@ -333,6 +340,10 @@ if lightrag_available:
                     st.error("Unsupported file type.")
                     st.stop()
                 
+                # Create document hash to track if it's already processed
+                import hashlib
+                document_hash = hashlib.md5(document_text.encode()).hexdigest()
+                
                 # Document statistics
                 word_count = len(document_text.split())
                 char_count = len(document_text)
@@ -360,13 +371,24 @@ if lightrag_available:
                 with st.expander("👁️ Document Preview", expanded=False):
                     st.text_area("First 500 characters:", document_text[:500], height=100, disabled=True)
                 
-                # Insert document into RAG
-                with st.spinner("🔄 Processing document..."):
-                    start_time = time.time()
-                    rag.insert(document_text)
-                    processing_time = time.time() - start_time
-                
-                st.success(f"✅ Document processed in {processing_time:.2f}s!")
+                # Check if we need to process this document
+                if (st.session_state.current_document_hash != document_hash or 
+                    not st.session_state.rag_initialized):
+                    
+                    # Insert document into RAG
+                    with st.spinner("🔄 Processing document (first time may take longer)..."):
+                        start_time = time.time()
+                        rag.insert(document_text)
+                        processing_time = time.time() - start_time
+                        
+                        # Mark as processed
+                        st.session_state.current_document_hash = document_hash
+                        st.session_state.rag_initialized = True
+                        st.session_state.processed_document = document_text
+                    
+                    st.success(f"✅ Document processed in {processing_time:.2f}s!")
+                else:
+                    st.success("✅ Document already processed - ready for queries!")
                 
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
@@ -430,6 +452,8 @@ if lightrag_available:
                 st.warning("⚠️ Please enter a query.")
             elif not search_modes:
                 st.warning("⚠️ Please select at least one search mode.")
+            elif not st.session_state.rag_initialized:
+                st.warning("⚠️ Please upload and process a document first.")
             else:
                 # Add to query history
                 st.session_state.query_history.append({
