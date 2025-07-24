@@ -379,6 +379,8 @@ if lightrag_available:
                     with st.spinner("🔄 Processing document (first time may take longer)..."):
                         start_time = time.time()
                         try:
+                            # Add verbose logging
+                            st.info("🔄 Starting document insertion...")
                             rag.insert(document_text)
                             processing_time = time.time() - start_time
                             
@@ -386,10 +388,22 @@ if lightrag_available:
                             created_files = os.listdir(WORKING_DIR) if os.path.exists(WORKING_DIR) else []
                             st.info(f"📁 Files created: {created_files}")
                             
+                            # Check if critical files exist
+                            critical_files = ['graph_chunk_entity_relation.json', 'entities.json', 'relationships.json']
+                            missing_files = [f for f in critical_files if f not in created_files]
+                            
+                            if missing_files:
+                                st.warning(f"⚠️ Missing critical files: {missing_files}")
+                                st.info("This explains why queries return [no-context]")
+                            else:
+                                st.success("✅ All critical knowledge graph files created!")
+                            
                         except Exception as e:
                             processing_time = time.time() - start_time
                             st.error(f"⚠️ Document processing error: {str(e)}")
-                            st.info("Document may have been partially processed")
+                            st.error(f"Error type: {type(e).__name__}")
+                            import traceback
+                            st.code(traceback.format_exc())
                         
                         # Mark as processed
                         st.session_state.current_document_hash = document_hash
