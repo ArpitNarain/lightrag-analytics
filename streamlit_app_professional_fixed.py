@@ -392,7 +392,23 @@ if lightrag_available:
                             
                             # Add verbose logging
                             st.info("🔄 Starting fresh document insertion...")
-                            rag.insert(document_text)
+                            st.info(f"📄 Document length: {len(document_text)} characters")
+                            st.info(f"📁 Working directory: {WORKING_DIR}")
+                            st.info(f"🔑 OpenAI API key exists: {bool(openai_api_key)}")
+                            
+                            # Check if document is empty or problematic
+                            if not document_text or len(document_text.strip()) < 100:
+                                st.error("⚠️ Document is too short or empty!")
+                                return
+                            
+                            # Try to process with more logging
+                            try:
+                                rag.insert(document_text)
+                            except Exception as insert_error:
+                                st.error(f"❌ Insert failed: {insert_error}")
+                                import traceback
+                                st.code(traceback.format_exc())
+                                
                             processing_time = time.time() - start_time
                             
                             # Check what files were created
@@ -482,6 +498,15 @@ if lightrag_available:
             if st.button("🗑️ Clear", use_container_width=True):
                 st.session_state.last_results = {}
                 st.rerun()
+        
+        # Add OpenAI API test button
+        if st.button("🧪 Test OpenAI API"):
+            try:
+                from lightrag.llm.openai import gpt_4o_mini_complete
+                test_result = gpt_4o_mini_complete("Say 'API working!'", model="gpt-4o-mini")
+                st.success(f"✅ OpenAI API works: {test_result}")
+            except Exception as e:
+                st.error(f"❌ OpenAI API failed: {str(e)}")
         
         # Add force reprocess button for debugging
         if st.button("🔄 Force Clean Reprocess"):
