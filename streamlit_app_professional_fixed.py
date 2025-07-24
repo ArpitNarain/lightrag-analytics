@@ -378,8 +378,18 @@ if lightrag_available:
                     # Insert document into RAG
                     with st.spinner("🔄 Processing document (first time may take longer)..."):
                         start_time = time.time()
-                        rag.insert(document_text)
-                        processing_time = time.time() - start_time
+                        try:
+                            rag.insert(document_text)
+                            processing_time = time.time() - start_time
+                            
+                            # Check what files were created
+                            created_files = os.listdir(WORKING_DIR) if os.path.exists(WORKING_DIR) else []
+                            st.info(f"📁 Files created: {created_files}")
+                            
+                        except Exception as e:
+                            processing_time = time.time() - start_time
+                            st.error(f"⚠️ Document processing error: {str(e)}")
+                            st.info("Document may have been partially processed")
                         
                         # Mark as processed
                         st.session_state.current_document_hash = document_hash
