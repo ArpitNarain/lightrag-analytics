@@ -399,7 +399,7 @@ if lightrag_available:
                             # Check if document is empty or problematic
                             if not document_text or len(document_text.strip()) < 100:
                                 st.error("⚠️ Document is too short or empty!")
-                                return
+                                st.stop()
                             
                             # Try to process with more logging
                             try:
