@@ -403,6 +403,15 @@ if lightrag_available:
                             
                             # Try to process with more logging
                             try:
+                                # Check if we have event loop issues
+                                import asyncio
+                                try:
+                                    loop = asyncio.get_event_loop()
+                                    st.info(f"🔄 Event loop: {loop}")
+                                except RuntimeError as e:
+                                    st.warning(f"⚠️ Event loop issue: {e}")
+                                
+                                # Try to insert document
                                 rag.insert(document_text)
                             except Exception as insert_error:
                                 st.error(f"❌ Insert failed: {insert_error}")
@@ -503,10 +512,20 @@ if lightrag_available:
         if st.button("🧪 Test OpenAI API"):
             try:
                 from lightrag.llm.openai import gpt_4o_mini_complete
-                test_result = gpt_4o_mini_complete("Say 'API working!'", model="gpt-4o-mini")
+                import asyncio
+                
+                # Test async function properly
+                async def test_openai():
+                    result = await gpt_4o_mini_complete("Say 'API working!'", model="gpt-4o-mini")
+                    return result
+                
+                # Run async function
+                test_result = asyncio.run(test_openai())
                 st.success(f"✅ OpenAI API works: {test_result}")
             except Exception as e:
                 st.error(f"❌ OpenAI API failed: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
         
         # Add force reprocess button for debugging
         if st.button("🔄 Force Clean Reprocess"):
