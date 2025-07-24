@@ -387,8 +387,10 @@ if lightrag_available:
                         st.session_state.processed_document = document_text
                     
                     st.success(f"✅ Document processed in {processing_time:.2f}s!")
+                    st.info(f"📋 Debug: Document hash {document_hash[:8]}... | Working dir: {WORKING_DIR}")
                 else:
                     st.success("✅ Document already processed - ready for queries!")
+                    st.info(f"📋 Debug: Using cached document {document_hash[:8]}... | Working dir: {WORKING_DIR}")
                 
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
@@ -479,6 +481,10 @@ if lightrag_available:
                     try:
                         result = rag.query(user_query, param=QueryParam(mode=mode))
                         end_time = time.time()
+                        
+                        # Add debug info for no-context responses
+                        if "[no-context]" in result:
+                            result += f"\n\n🔍 Debug Info:\n- Document processed: {st.session_state.rag_initialized}\n- Working dir exists: {os.path.exists(WORKING_DIR)}\n- Query mode: {mode}"
                         
                         results[mode] = result
                         performance_data.append({
